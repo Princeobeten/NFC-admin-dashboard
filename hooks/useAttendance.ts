@@ -24,7 +24,7 @@ export interface AttendanceStats {
 export const useAttendance = () => {
   const { staff, attendanceDays, attendanceRecords, markAttendance, isLoading, error } = useStaff();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [selectedStaffId, setSelectedStaffId] = useState<string>('');
+  const [selectedStaffId, setSelectedStaffId] = useState<string>('all');
   const [action, setAction] = useState<'check_in' | 'check_out'>('check_in');
   const [deviceId, setDeviceId] = useState<string>('web-portal');
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -68,9 +68,8 @@ export const useAttendance = () => {
 
   // Calculate attendance statistics
   const calculateStats = (records: AttendanceRecord[]): AttendanceStats => {
-    // Calculate attendance summary based on check-ins
-    const todayCheckIns = records.filter(record => record.action === 'check_in');
-    const uniqueStaffIds = new Set(todayCheckIns.map(record => record.user_id));
+    // Get unique staff IDs that have attendance records (either check-in or check-out)
+    const uniqueStaffIds = new Set(records.map(record => record.user_id));
     
     // Get unique dates in the records to determine total days
     const uniqueDates = new Set(records.map(record => record.date));

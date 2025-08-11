@@ -39,8 +39,10 @@ export type AttendanceRecord = {
   date: string;
   action: string; // 'check_in' | 'check_out' or other status values
   nfc_uid: string;
-  timestamp: any; // Firestore timestamp
-  device_id: string;
+  timestamp: any; // Firestore timestamp for check-in
+  device_id: string; // Device ID for check-in
+  checkout_timestamp?: any; // Firestore timestamp for check-out
+  checkout_device_id?: string; // Device ID for check-out
   // Optional fields for UI display
   staffId?: string;
   status?: string;

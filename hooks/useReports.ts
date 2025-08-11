@@ -33,7 +33,7 @@ export const useReports = () => {
 
   const filteredAttendance = getFilteredAttendance();
 
-  // Calculate attendance statistics based on check-ins and check-outs
+  // Calculate attendance statistics based on records with timestamp (check-in) and checkout_timestamp (check-out)
   const calculateStats = () => {
     const totalDays = new Set(filteredAttendance.map(record => record.date)).size;
     const totalRecords = filteredAttendance.length;
@@ -41,7 +41,7 @@ export const useReports = () => {
     // Group by user_id and date to count unique check-ins
     const userDateMap = new Map<string, Set<string>>();
     filteredAttendance.forEach(record => {
-      if (record.action === 'check_in') {
+      if (record.timestamp) { // Check if there's a check-in timestamp
         const key = `${record.user_id}-${record.date}`;
         if (!userDateMap.has(key)) {
           userDateMap.set(key, new Set());
@@ -109,7 +109,7 @@ export const useReports = () => {
     // Count check-ins for each staff member
     filteredAttendance.forEach(record => {
       if (staffData[record.user_id]) {
-        if (record.action === 'check_in') {
+        if (record.timestamp) {
           staffData[record.user_id].checkIns++;
           staffData[record.user_id].dates.add(record.date);
         }
@@ -265,53 +265,73 @@ export const useReports = () => {
       'Date',
       'Staff Name',
       'Department',
-      'Action',
+      'Status',
       'Check-In Time',
       'Check-Out Time',
-      'Device ID'
+      'Check-In Device',
+      'Check-Out Device'
     ];
 
     // Process records for CSV
     const rows = filteredAttendance.map(record => {
-      // Format timestamp
+      // Format timestamps
       let checkInTime = '-';
       let checkOutTime = '-';
       
-      if (record.action === 'check_in' && record.timestamp) {
+      // Format check-in timestamp
+      if (record.timestamp) {
         try {
           if (typeof record.timestamp.toDate === 'function') {
             checkInTime = format(record.timestamp.toDate(), 'yyyy-MM-dd HH:mm:ss');
           } else if (record.timestamp instanceof Date) {
             checkInTime = format(record.timestamp, 'yyyy-MM-dd HH:mm:ss');
+          } else if (typeof record.timestamp === 'string') {
+            const date = parseISO(record.timestamp);
+            checkInTime = format(date, 'yyyy-MM-dd HH:mm:ss');
           }
         } catch (e) {
           checkInTime = String(record.timestamp);
         }
       }
       
-      if (record.action === 'check_out' && record.timestamp) {
+      // Format check-out timestamp
+      if (record.checkout_timestamp) {
         try {
-          if (typeof record.timestamp.toDate === 'function') {
-            checkOutTime = format(record.timestamp.toDate(), 'yyyy-MM-dd HH:mm:ss');
-          } else if (record.timestamp instanceof Date) {
-            checkOutTime = format(record.timestamp, 'yyyy-MM-dd HH:mm:ss');
+          if (typeof record.checkout_timestamp.toDate === 'function') {
+            checkOutTime = format(record.checkout_timestamp.toDate(), 'yyyy-MM-dd HH:mm:ss');
+          } else if (record.checkout_timestamp instanceof Date) {
+            checkOutTime = format(record.checkout_timestamp, 'yyyy-MM-dd HH:mm:ss');
+          } else if (typeof record.checkout_timestamp === 'string') {
+            const date = parseISO(record.checkout_timestamp);
+            checkOutTime = format(date, 'yyyy-MM-dd HH:mm:ss');
           }
         } catch (e) {
-          checkOutTime = String(record.timestamp);
+          checkOutTime = String(record.checkout_timestamp);
         }
       }
 
       // Find staff member
       const staffMember = staff.find(s => s.id === record.user_id);
       
+      // Determine status based on timestamps
+      let status = 'No Data';
+      if (record.timestamp && record.checkout_timestamp) {
+        status = 'Complete';
+      } else if (record.timestamp) {
+        status = 'Checked In';
+      } else if (record.checkout_timestamp) {
+        status = 'Checked Out';
+      }
+      
       return [
         record.date,
         record.name || (staffMember?.name || 'Unknown'),
         record.department || (staffMember?.department || 'Unknown'),
-        record.action.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        status,
         checkInTime,
         checkOutTime,
-        record.device_id || '-'
+        record.device_id || '-',
+        record.checkout_device_id || '-'
       ];
     });
 

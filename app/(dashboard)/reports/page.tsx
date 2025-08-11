@@ -420,7 +420,19 @@ export default function ReportsPage() {
                     scope="col"
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                   >
+                    Check In Device
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
                     Check Out
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Check Out Device
                   </th>
                 </tr>
               </thead>
@@ -445,29 +457,40 @@ export default function ReportsPage() {
                             </td>
                           )}
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span
-                              className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                record.action === 'check_in'
-                                  ? 'bg-green-100 text-green-800'
-                                  : record.action === 'check_out'
-                                  ? 'bg-blue-100 text-blue-800'
-                                  : record.action === 'late'
-                                  ? 'bg-yellow-100 text-yellow-800'
-                                  : record.action === 'half_day'
-                                  ? 'bg-purple-100 text-purple-800'
-                                  : record.action === 'absent'
-                                  ? 'bg-red-100 text-red-800'
-                                  : 'bg-gray-100 text-gray-800'
-                              }`}
-                            >
-                              {(record.action || '').replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                            </span>
+                            {(() => {
+                              // Determine status based on timestamps
+                              let status = 'No Data';
+                              let colorClasses = 'bg-gray-100 text-gray-800';
+                              
+                              if (record.timestamp && record.checkout_timestamp) {
+                                status = 'Complete';
+                                colorClasses = 'bg-green-100 text-green-800';
+                              } else if (record.timestamp) {
+                                status = 'Checked In';
+                                colorClasses = 'bg-blue-100 text-blue-800';
+                              } else if (record.checkout_timestamp) {
+                                status = 'Checked Out';
+                                colorClasses = 'bg-yellow-100 text-yellow-800';
+                              }
+                              
+                              return (
+                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${colorClasses}`}>
+                                  {status}
+                                </span>
+                              );
+                            })()} 
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {record.action === 'check_in' ? formatTimestamp(record.timestamp) : '-'}
+                            {formatTimestamp(record.timestamp)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {record.action === 'check_out' ? formatTimestamp(record.timestamp) : '-'}
+                            {record.device_id || '-'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {formatTimestamp(record.checkout_timestamp)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {record.checkout_device_id || '-'}
                           </td>
                         </tr>
                       );

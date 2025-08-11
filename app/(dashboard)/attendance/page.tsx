@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { format, parseISO } from 'date-fns';
 import { useAttendance } from '@/hooks/useAttendance';
 import { Staff } from '@/context/StaffContext';
@@ -12,6 +12,8 @@ export default function AttendancePage() {
     presentStaff,
     selectedStaffId,
     setSelectedStaffId,
+    selectedDate,
+    setSelectedDate,
     currentMonth,
     previousMonth,
     nextMonth,
@@ -31,12 +33,31 @@ export default function AttendancePage() {
   // Local state for view settings
   const [viewMode] = React.useState('view-only');
   const [recordsPerPage, setRecordsPerPage] = React.useState(defaultRecordsPerPage || 10);
+  const [hasShownRecords, setHasShownRecords] = React.useState(false);
   
   // Handle records per page change
   const handleRecordsPerPageChange = (value: number) => {
     setRecordsPerPage(value);
     setAttendanceRecordsPerPage(value);
   };
+
+  // Find most recent date with records to display by default
+  useEffect(() => {
+    if (selectedDateRecords.length === 0 && !hasShownRecords && monthlyRecords.length > 0) {
+      // Get unique dates from monthly records in descending order (most recent first)
+      const allDates = monthlyRecords.map(record => record.date);
+      const uniqueDates = allDates.filter((date, index) => allDates.indexOf(date) === index).sort().reverse();
+      
+      if (uniqueDates.length > 0) {
+        // Select the most recent date that has records
+        const mostRecentDate = parseISO(uniqueDates[0]);
+        setSelectedDate(mostRecentDate);
+        setHasShownRecords(true);
+      }
+    } else if (selectedDateRecords.length > 0 && !hasShownRecords) {
+      setHasShownRecords(true);
+    }
+  }, [selectedDateRecords, monthlyRecords, hasShownRecords]);
 
   return (
     <div className="px-4 sm:px-6 lg:px-8">
@@ -124,7 +145,7 @@ export default function AttendancePage() {
               <div className="px-4 py-5 sm:p-6">
                 <dt className="text-sm font-medium text-yellow-800 truncate">Check-ins</dt>
                 <dd className="mt-1 text-3xl font-semibold text-yellow-900">
-                  {monthlyRecords.filter((r: { action: string; }) => r.action === 'check_in').length}
+                  {monthlyRecords.filter((r: any) => r.timestamp).length}
                 </dd>
                 <dd className="mt-1 text-sm text-yellow-700">
                   Total check-ins this month
@@ -146,7 +167,7 @@ export default function AttendancePage() {
               <div className="px-4 py-5 sm:p-6">
                 <dt className="text-sm font-medium text-blue-800 truncate">Check-outs</dt>
                 <dd className="mt-1 text-3xl font-semibold text-blue-900">
-                  {monthlyRecords.filter((r: { action: string; }) => r.action === 'check_out').length}
+                  {monthlyRecords.filter((r: any) => r.checkout_timestamp).length}
                 </dd>
                 <dd className="mt-1 text-sm text-blue-700">
                   Total check-outs this month
@@ -170,7 +191,7 @@ export default function AttendancePage() {
                 : `Showing attendance records for ${staff.find((s: { id: string; }) => s.id === selectedStaffId)?.name || 'Selected Staff'}`}
             </p>
           </div>
-          {selectedDateRecords.length > 0 ? (
+          {(selectedDateRecords.length > 0 || staff.length > 0) ? (
             <div className="border-t border-gray-200 px-4 py-5 sm:px-6">
               {/* Records per page selector */}
               <div className="flex justify-end mb-4">
@@ -207,16 +228,67 @@ export default function AttendancePage() {
                           Status
                         </th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Check-in
+                          Check-in Time
                         </th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Check-out
+                          Check-out Time
                         </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {selectedDateRecords.map((record: { user_id: any; id: React.Key | null | undefined; action: string; timestamp: any; }) => {
-                        const staffMember = staff.find((s: { id: any; }) => s.id === record.user_id);
+                      {(() => {
+                        // Define the structure of a paired record
+                        interface PairedRecord {
+                          id: string;
+                          user_id: string;
+                          name: string;
+                          department: string;
+                          checkInTimestamp?: any;
+                          checkOutTimestamp?: any;
+                        }
+                        
+                        // Create paired records directly from the selectedDateRecords
+                        // Since each record contains both check-in and check-out data
+                        const pairedRecords: PairedRecord[] = [];
+                        const addedUserIds = new Set<string>();
+                        
+                        // Process existing records first
+                        selectedDateRecords.forEach((record: any) => {
+                          // Add to our tracking set to avoid duplicates
+                          addedUserIds.add(record.user_id);
+                          
+                          // Create a paired record for this user
+                          pairedRecords.push({
+                            id: record.id,
+                            user_id: record.user_id,
+                            name: record.name,
+                            department: record.department,
+                            // Use timestamp for check-in and checkout_timestamp for check-out from the same record
+                            checkInTimestamp: record.timestamp,
+                            checkOutTimestamp: record.checkout_timestamp
+                          });
+                        });
+                        
+                        // If showing all staff, add entries for staff members without records
+                        if (selectedStaffId === 'all') {
+                          // Add missing staff members
+                          staff.forEach((staffMember: Staff) => {
+                            if (!addedUserIds.has(staffMember.id)) {
+                              pairedRecords.push({
+                                id: `missing-${staffMember.id}`,
+                                user_id: staffMember.id,
+                                name: staffMember.name,
+                                department: staffMember.department || '',
+                                checkInTimestamp: null,
+                                checkOutTimestamp: null
+                              });
+                            }
+                          });
+                        }
+                        
+                        return pairedRecords;
+                      })().map((pairedRecord) => {
+                        const staffMember = staff.find((s: { id: any; }) => s.id === pairedRecord.user_id);
                         
                         // Format timestamp safely
                         const formatTimestamp = (timestamp: any) => {
@@ -234,31 +306,34 @@ export default function AttendancePage() {
                           }
                         };
                         
-                        // Determine status color based on action
-                        const getStatusStyle = (action: string) => {
-                          switch(action) {
-                            case 'check_in':
-                              return 'bg-green-100 text-green-800';
-                            case 'check_out':
-                              return 'bg-blue-100 text-blue-800';
-                            case 'late':
-                              return 'bg-orange-100 text-orange-800';
-                            case 'half_day':
-                              return 'bg-purple-100 text-purple-800';
-                            case 'absent':
-                              return 'bg-red-100 text-red-800';
-                            default:
-                              return 'bg-gray-100 text-gray-800';
+                        // Determine status based on check-in/check-out
+                        const getStatusStyle = () => {
+                          if (pairedRecord.checkInTimestamp && pairedRecord.checkOutTimestamp) {
+                            return 'bg-green-100 text-green-800'; // Complete attendance
+                          } else if (pairedRecord.checkInTimestamp) {
+                            return 'bg-blue-100 text-blue-800'; // Only checked in
+                          } else if (pairedRecord.checkOutTimestamp) {
+                            return 'bg-orange-100 text-orange-800'; // Only checked out
+                          } else {
+                            return 'bg-gray-100 text-gray-800'; // No data
                           }
                         };
                         
-                        // Format action text for display
-                        const formatActionText = (action: string) => {
-                          return action.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+                        // Format status text for display
+                        const getStatusText = () => {
+                          if (pairedRecord.checkInTimestamp && pairedRecord.checkOutTimestamp) {
+                            return 'Complete';
+                          } else if (pairedRecord.checkInTimestamp) {
+                            return 'Checked In';
+                          } else if (pairedRecord.checkOutTimestamp) {
+                            return 'Checked Out';
+                          } else {
+                            return 'No Data';
+                          }
                         };
                         
                         return (
-                          <tr key={record.id}>
+                          <tr key={pairedRecord.id}>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center">
                                 <div className="flex-shrink-0 h-10 w-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold">
@@ -275,15 +350,15 @@ export default function AttendancePage() {
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusStyle(record.action)}`}>
-                                {formatActionText(record.action)}
+                              <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusStyle()}`}>
+                                {getStatusText()}
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {record.action === 'check_in' ? formatTimestamp(record.timestamp) : '-'}
+                              {formatTimestamp(pairedRecord.checkInTimestamp)}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {record.action === 'check_out' ? formatTimestamp(record.timestamp) : '-'}
+                              {formatTimestamp(pairedRecord.checkOutTimestamp)}
                             </td>
                           </tr>
                         );
