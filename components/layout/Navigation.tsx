@@ -8,6 +8,7 @@ import {
   UserGroupIcon, 
   DocumentChartBarIcon, 
   ClipboardDocumentCheckIcon,
+  Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
 
 export const navigation = [
@@ -15,6 +16,7 @@ export const navigation = [
   { name: 'Staff Management', href: '/staff', icon: UserGroupIcon },
   { name: 'Attendance', href: '/attendance', icon: ClipboardDocumentCheckIcon },
   { name: 'Reports & Analytics', href: '/reports', icon: DocumentChartBarIcon },
+  { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
 ];
 
 interface NavigationProps {
