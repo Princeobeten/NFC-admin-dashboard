@@ -14,6 +14,7 @@ import {
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
 import { useReports } from '@/hooks/useReports';
+import { useSettings } from '@/hooks/useSettings';
 
 // Register ChartJS components
 ChartJS.register(
@@ -58,6 +59,7 @@ const formatTimestamp = (timestamp: any): string => {
 };
 
 export default function ReportsPage() {
+  const { attendanceRules, loading: settingsLoading } = useSettings();
   const {
     staff,
     selectedStaff,
@@ -89,9 +91,6 @@ export default function ReportsPage() {
     error,
     filteredAttendance
   } = useReports();
-  
-  // Log raw data from Firebase for debugging
-  console.log('Raw attendance data:', filteredAttendance);
 
   return (
     <div className="px-4 sm:px-6 lg:px-8">
@@ -299,6 +298,9 @@ export default function ReportsPage() {
             <dd className="mt-1 text-3xl font-semibold text-yellow-600">
               {stats.latePercentage.toFixed(1)}%
             </dd>
+            <div className="mt-1 text-xs text-gray-500">
+              Threshold: {attendanceRules?.thresholds?.late_minutes || 0} minutes after start time
+            </div>
           </div>
         </div>
         <div className="bg-white overflow-hidden shadow rounded-lg">

@@ -167,7 +167,7 @@ export default function AttendancePage() {
               <div className="px-4 py-5 sm:p-6">
                 <dt className="text-sm font-medium text-blue-800 truncate">Check-outs</dt>
                 <dd className="mt-1 text-3xl font-semibold text-blue-900">
-                  {monthlyRecords.filter((r: any) => r.checkout_timestamp).length}
+                  {monthlyRecords.filter((r: any) => r.check_out_time || r.checkout_timestamp).length}
                 </dd>
                 <dd className="mt-1 text-sm text-blue-700">
                   Total check-outs this month
@@ -263,9 +263,9 @@ export default function AttendancePage() {
                             user_id: record.user_id,
                             name: record.name,
                             department: record.department,
-                            // Use timestamp for check-in and checkout_timestamp for check-out from the same record
+                            // Use timestamp for check-in and check_out_time for check-out from the same record
                             checkInTimestamp: record.timestamp,
-                            checkOutTimestamp: record.checkout_timestamp
+                            checkOutTimestamp: record.check_out_time || record.checkout_timestamp
                           });
                         });
                         

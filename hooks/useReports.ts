@@ -2,10 +2,12 @@
 
 import { useState, useMemo } from 'react';
 import { useStaff, AttendanceRecord, Staff } from '@/context/StaffContext';
-import { format, parseISO, startOfMonth, endOfMonth, subMonths, subDays, startOfWeek, endOfWeek, startOfYear, endOfYear } from 'date-fns';
+import { useSettings } from '@/hooks/useSettings';
+import { format, parseISO, startOfMonth, endOfMonth, subMonths, subDays, startOfWeek, endOfWeek, startOfYear, endOfYear, setHours, setMinutes } from 'date-fns';
 
 export const useReports = () => {
   const { staff, getStaffAttendance, getAllAttendance, isLoading, error } = useStaff();
+  const { attendanceRules, loading: settingsLoading } = useSettings();
   
   const [selectedStaff, setSelectedStaff] = useState<string>('all');
   const [selectedPreset, setSelectedPreset] = useState<string>('today');
@@ -40,6 +42,9 @@ export const useReports = () => {
     
     // Group by user_id and date to count unique check-ins
     const userDateMap = new Map<string, Set<string>>();
+    // Track late check-ins
+    const lateCheckIns = new Map<string, boolean>();
+    
     filteredAttendance.forEach(record => {
       if (record.timestamp) { // Check if there's a check-in timestamp
         const key = `${record.user_id}-${record.date}`;
@@ -47,14 +52,51 @@ export const useReports = () => {
           userDateMap.set(key, new Set());
         }
         userDateMap.get(key)?.add(record.date);
+        
+        // Check if the check-in is late based on settings
+        if (attendanceRules?.work_hours && record.timestamp) {
+          const { start_hour, start_minute } = attendanceRules.work_hours;
+          const lateMinutes = attendanceRules.thresholds?.late_minutes || 0;
+          
+          // Create the expected start time for the day
+          const recordDate = parseISO(record.date);
+          const expectedStartTime = setMinutes(
+            setHours(recordDate, start_hour),
+            start_minute
+          );
+          
+          // Add the late threshold to get the cutoff time
+          const lateThreshold = new Date(expectedStartTime.getTime() + lateMinutes * 60 * 1000);
+          
+          // Get the actual check-in time
+          let checkInTime: Date;
+          if (typeof record.timestamp.toDate === 'function') {
+            // Firestore timestamp
+            checkInTime = record.timestamp.toDate();
+          } else if (typeof record.timestamp === 'string') {
+            // ISO string
+            checkInTime = new Date(record.timestamp);
+          } else {
+            // Date object
+            checkInTime = record.timestamp;
+          }
+          
+          // Check if check-in time is after the late threshold
+          if (checkInTime > lateThreshold) {
+            lateCheckIns.set(key, true);
+          }
+        }
       }
     });
     
     const presentCount = userDateMap.size;
+    const lateCount = Array.from(lateCheckIns.values()).filter(Boolean).length;
     const absentCount = staff.length * totalDays - presentCount;
     
     const presentPercentage = totalDays > 0 && staff.length > 0 ? 
       (presentCount / (staff.length * totalDays)) * 100 : 0;
+    const latePercentage = presentCount > 0 ? 
+      (lateCount / presentCount) * 100 : 0;
     const absentPercentage = totalDays > 0 && staff.length > 0 ? 
       (absentCount / (staff.length * totalDays)) * 100 : 0;
     
@@ -62,11 +104,11 @@ export const useReports = () => {
       totalDays,
       totalRecords,
       presentCount,
-      lateCount: 0, // Not tracked in new structure
+      lateCount,
       absentCount,
       halfDayCount: 0, // Not tracked in new structure
       presentPercentage,
-      latePercentage: 0, // Not tracked in new structure
+      latePercentage,
       absentPercentage,
       halfDayPercentage: 0, // Not tracked in new structure
     };
@@ -76,17 +118,19 @@ export const useReports = () => {
 
   // Prepare data for attendance chart
   const chartData = {
-    labels: ['Present', 'Absent'],
+    labels: ['Present', 'Late', 'Absent'],
     datasets: [
       {
         label: 'Attendance Distribution',
-        data: [stats.presentCount, stats.absentCount],
+        data: [stats.presentCount - stats.lateCount, stats.lateCount, stats.absentCount],
         backgroundColor: [
           'rgba(34, 197, 94, 0.6)',
+          'rgba(234, 179, 8, 0.6)',
           'rgba(239, 68, 68, 0.6)',
         ],
         borderColor: [
           'rgb(34, 197, 94)',
+          'rgb(234, 179, 8)',
           'rgb(239, 68, 68)',
         ],
         borderWidth: 1,

@@ -39,7 +39,8 @@ export default function DashboardPage() {
     halfDayToday,
     prepareTrendData,
     todayAttendanceData,
-    recentAttendanceRecords
+    recentAttendanceRecords,
+    attendanceRules
   } = useDashboard();
 
   return (
@@ -176,6 +177,9 @@ export default function DashboardPage() {
                     {activeStaffCount > 0 ? Math.round((lateToday / activeStaffCount) * 100) : 0}%
                   </div>
                 </dd>
+                <div className="mt-1 text-xs text-gray-500">
+                  Threshold: {attendanceRules?.thresholds?.late_minutes || 0} min after start
+                </div>
               </div>
             </div>
           </div>
@@ -320,7 +324,7 @@ export default function DashboardPage() {
                             <div className="text-sm text-gray-500">
                               {record.date ? format(parseISO(record.date), 'MMM dd, yyyy') : 'Unknown date'}
                             </div>
-                            {/* <span
+                            <span
                               className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                                 record.status === 'present'
                                   ? 'bg-green-100 text-green-800'
@@ -332,7 +336,7 @@ export default function DashboardPage() {
                               }`}
                             >
                               {record.status ? record.status.charAt(0).toUpperCase() + record.status.slice(1) : 'Unknown'}
-                            </span> */}
+                            </span>
                         <div className="mt-2 sm:flex sm:justify-between">
                           <div className="sm:flex">
                             {record.action === 'check_in' && (
