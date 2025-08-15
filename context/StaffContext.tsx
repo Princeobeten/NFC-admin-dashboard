@@ -41,7 +41,8 @@ export type AttendanceRecord = {
   nfc_uid: string;
   timestamp: any; // Firestore timestamp for check-in
   device_id: string; // Device ID for check-in
-  checkout_timestamp?: any; // Firestore timestamp for check-out
+  checkout_timestamp?: any; // Firestore timestamp for check-out (legacy field)
+  check_out_time?: any; // New Firestore timestamp for check-out
   checkout_device_id?: string; // Device ID for check-out
   // Optional fields for UI display
   staffId?: string;
@@ -183,7 +184,9 @@ export const StaffProvider = ({ children }: { children: ReactNode }) => {
             action: data.action,
             nfc_uid: data.nfc_uid || '',
             timestamp: data.timestamp,
-            device_id: data.device_id || 'unknown'
+            device_id: data.device_id || 'unknown',
+            check_out_time: data.check_out_time,
+            checkout_device_id: data.checkout_device_id
           };
           
           dayRecords.push(record);

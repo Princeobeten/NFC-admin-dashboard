@@ -33,7 +33,7 @@ export const useReports = () => {
 
   const filteredAttendance = getFilteredAttendance();
 
-  // Calculate attendance statistics based on records with timestamp (check-in) and checkout_timestamp (check-out)
+  // Calculate attendance statistics based on records with timestamp (check-in) and checkout_timestamp/check_out_time (check-out)
   const calculateStats = () => {
     const totalDays = new Set(filteredAttendance.map(record => record.date)).size;
     const totalRecords = filteredAttendance.length;
@@ -98,20 +98,24 @@ export const useReports = () => {
   const prepareStaffComparisonData = () => {
     if (selectedStaff !== 'all') return null;
 
-    // Track check-ins by staff member
-    const staffData: Record<string, { checkIns: number; dates: Set<string> }> = {};
+    // Track check-ins and check-outs by staff member
+    const staffData: Record<string, { checkIns: number; checkOuts: number; dates: Set<string> }> = {};
     
     // Initialize data for each staff member
     staff.forEach(member => {
-      staffData[member.id] = { checkIns: 0, dates: new Set() };
+      staffData[member.id] = { checkIns: 0, checkOuts: 0, dates: new Set() };
     });
     
-    // Count check-ins for each staff member
+    // Count check-ins and check-outs for each staff member
     filteredAttendance.forEach(record => {
       if (staffData[record.user_id]) {
         if (record.timestamp) {
           staffData[record.user_id].checkIns++;
           staffData[record.user_id].dates.add(record.date);
+        }
+        // Check for checkout_timestamp or check_out_time
+        if (record.checkout_timestamp || record.check_out_time) {
+          staffData[record.user_id].checkOuts++;
         }
       }
     });
@@ -120,6 +124,7 @@ export const useReports = () => {
     const labels = staff.map(member => member.name.split(' ')[0]); // Use first name only for brevity
     
     const checkInData = staff.map(member => staffData[member.id]?.checkIns || 0);
+    const checkOutData = staff.map(member => staffData[member.id]?.checkOuts || 0);
     const uniqueDatesData = staff.map(member => staffData[member.id]?.dates.size || 0);
     
     return {
@@ -130,6 +135,13 @@ export const useReports = () => {
           data: checkInData,
           backgroundColor: 'rgba(34, 197, 94, 0.6)',
           borderColor: 'rgb(34, 197, 94)',
+          borderWidth: 1,
+        },
+        {
+          label: 'Total Check-outs',
+          data: checkOutData,
+          backgroundColor: 'rgba(234, 88, 12, 0.6)',
+          borderColor: 'rgb(234, 88, 12)',
           borderWidth: 1,
         },
         {
@@ -294,19 +306,20 @@ export const useReports = () => {
         }
       }
       
-      // Format check-out timestamp
-      if (record.checkout_timestamp) {
+      // Format check-out timestamp (check for both checkout_timestamp and check_out_time)
+      const checkoutTime = record.checkout_timestamp || record.check_out_time;
+      if (checkoutTime) {
         try {
-          if (typeof record.checkout_timestamp.toDate === 'function') {
-            checkOutTime = format(record.checkout_timestamp.toDate(), 'yyyy-MM-dd HH:mm:ss');
-          } else if (record.checkout_timestamp instanceof Date) {
-            checkOutTime = format(record.checkout_timestamp, 'yyyy-MM-dd HH:mm:ss');
-          } else if (typeof record.checkout_timestamp === 'string') {
-            const date = parseISO(record.checkout_timestamp);
+          if (typeof checkoutTime.toDate === 'function') {
+            checkOutTime = format(checkoutTime.toDate(), 'yyyy-MM-dd HH:mm:ss');
+          } else if (checkoutTime instanceof Date) {
+            checkOutTime = format(checkoutTime, 'yyyy-MM-dd HH:mm:ss');
+          } else if (typeof checkoutTime === 'string') {
+            const date = parseISO(checkoutTime);
             checkOutTime = format(date, 'yyyy-MM-dd HH:mm:ss');
           }
         } catch (e) {
-          checkOutTime = String(record.checkout_timestamp);
+          checkOutTime = String(checkoutTime);
         }
       }
 
@@ -315,11 +328,12 @@ export const useReports = () => {
       
       // Determine status based on timestamps
       let status = 'No Data';
-      if (record.timestamp && record.checkout_timestamp) {
+      const hasCheckout = record.checkout_timestamp || record.check_out_time;
+      if (record.timestamp && hasCheckout) {
         status = 'Complete';
       } else if (record.timestamp) {
         status = 'Checked In';
-      } else if (record.checkout_timestamp) {
+      } else if (hasCheckout) {
         status = 'Checked Out';
       }
       

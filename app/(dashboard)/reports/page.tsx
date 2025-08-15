@@ -89,6 +89,9 @@ export default function ReportsPage() {
     error,
     filteredAttendance
   } = useReports();
+  
+  // Log raw data from Firebase for debugging
+  console.log('Raw attendance data:', filteredAttendance);
 
   return (
     <div className="px-4 sm:px-6 lg:px-8">
@@ -462,13 +465,16 @@ export default function ReportsPage() {
                               let status = 'No Data';
                               let colorClasses = 'bg-gray-100 text-gray-800';
                               
-                              if (record.timestamp && record.checkout_timestamp) {
+                              // Check for either checkout_timestamp or check_out_time
+                              const hasCheckout = record.check_out_time;
+                              
+                              if (record.timestamp && hasCheckout) {
                                 status = 'Complete';
                                 colorClasses = 'bg-green-100 text-green-800';
                               } else if (record.timestamp) {
                                 status = 'Checked In';
                                 colorClasses = 'bg-blue-100 text-blue-800';
-                              } else if (record.checkout_timestamp) {
+                              } else if (hasCheckout) {
                                 status = 'Checked Out';
                                 colorClasses = 'bg-yellow-100 text-yellow-800';
                               }
@@ -487,7 +493,7 @@ export default function ReportsPage() {
                             {record.device_id || '-'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {formatTimestamp(record.checkout_timestamp)}
+                            {formatTimestamp(record.check_out_time)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {record.checkout_device_id || '-'}
